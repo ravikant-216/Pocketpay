@@ -1,47 +1,49 @@
-name: SonarCloud Frontend
+name: Codecov Frontend Scan
 on:
   push:
     branches:
-      - main                                          # change it to your main branch.
+      - main # Change it to your main branch.
     paths:
-      - "frontend/**"                                # give the frontend folder name.
-      - ".github/workflows/frontendBuild.yml"        # Replace it correctly with the path to your file name.
+      - "frontend/**" # Specify the frontend folder name.
+      - ".github/workflows/frontendBuild.yml" # Replace it correctly with the path to your workflow file.
   pull_request:
     types: [opened, synchronize, reopened]
 
 jobs:
-  sonarscan:
+  codecov:
     if: ( startsWith(github.head_ref, 'FE_') && github.event.pull_request.merged == false ) || ( github.event_name == 'push' )
-    name: FE Sonar Analysis
+    name: FE Codecov Analysis
     runs-on: ubuntu-latest
-    timeout-minutes: 8                        # Give the value at most 8 mins.
+    timeout-minutes: 8 # Set the timeout as needed.
     defaults:
       run:
-        working-directory: frontend           # Change the working-directory to your frontend folder name.
+        working-directory: frontend # Change the working-directory to your frontend folder name.
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 0                      # Shallow clones should be disabled for better relevancy of analysis.
+          fetch-depth: 0 # Ensure full history for accurate analysis.
+
       - name: Cache node modules
         id: cache-nodemodules
         uses: actions/cache@v3
-        env:
-          cache-name: cache-node-modules                  
         with:
-          path: ${{ github.workspace }}/frontend/node_modules         # Change the path to the node_modules folder.
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package.json') }}
-        
+          path: ${{ github.workspace }}/frontend/node_modules # Path to the node_modules folder.
+          key: ${{ runner.os }}-build-${{ hashFiles('**/package.json') }}
+        env:
+          cache-name: cache-node-modules
+
       - name: Install the dependencies
         if: steps.cache-nodemodules.outputs.cache-hit != 'true'
         run: npm install
 
-      - name: Test and coverage
-        run: npm run test
-        
-      - name: SonarCloud Scan
+      - name: Run tests and generate coverage
+        run: npm test -- --coverage # Ensure your test script generates a coverage report.
+
+      - name: Upload results to Codecov
+        uses: codecov/codecov-action@v3
         with:
-          projectBaseDir: frontend                         # Keep the projectBaseDir same as the working-directory.
-        uses: SonarSource/sonarcloud-github-action@v1.6
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }} # Ensure the Codecov token is added to your repository secrets.
+          files: ./coverage/lcov.info # Path to the coverage report file.
+          flags: frontend # Optional flag to identify this upload.
+          name: frontend-coverage # Optional name for the upload.
+          fail_ci_if_error: true # Fail the workflow if Codecov upload fails.
